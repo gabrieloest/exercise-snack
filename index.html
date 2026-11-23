@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#09090b" />
+  <title>Exercise Snacks • Pausas Ativas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            surface: '#121216',
+            card: '#18181f',
+            border: '#272732',
+            lime: {
+              400: '#a3e635',
+              500: '#84cc16',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #09090b;
+      color: #f4f4f5;
+      font-family: 'Inter', sans-serif;
+      overscroll-behavior-y: contain;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.7; }
+      50% { transform: scale(1.03); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.7; }
+    }
+    .animate-pulse-ring {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+    /* Custom scrollbar suave */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #272732;
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center pb-24 selection:bg-lime-400 selection:text-zinc-950">
+
+  <!-- Container Mobile-First Centralizado -->
+  <div class="w-full max-w-md px-4 pt-4 flex flex-col gap-4">
+
+    <!-- Cabeçalho Superior -->
+    <header class="flex items-center justify-between py-1">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-2xl bg-lime-400 text-zinc-950 flex items-center justify-center shadow-lg shadow-lime-400/20">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-extrabold tracking-tight leading-none text-white">Exercise Snacks</h1>
+          <p id="header-date" class="text-xs text-zinc-400 mt-1 font-medium capitalize">Carregando data...</p>
+        </div>
+      </div>
+
+      <!-- Toggle Ativar/Pausar Lembretes -->
+      <button id="toggle-active-btn" onclick="toggleReminders()" aria-label="Ativar ou pausar lembretes"
+        class="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border transition-all active:scale-95 font-semibold text-xs">
+        <span id="active-dot" class="w-2.5 h-2.5 rounded-full bg-lime-400"></span>
+        <span id="active-label">Ativo</span>
+      </button>
+    </header>
+
+    <!-- Seletor Rápido: Dia Normal vs Dia de Treino Pesado -->
+    <section class="bg-card border border-border rounded-3xl p-1.5 flex items-center gap-1.5 shadow-sm">
+      <button id="mode-normal-btn" onclick="setDayMode('normal')"
+        class="flex-1 py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+        <span>⚡ Dia Normal</span>
+      </button>
+      <button id="mode-heavy-btn" onclick="setDayMode('heavy')"
+        class="flex-1 py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+        <span>🏋️ Treino Pesado</span>
+      </button>
+    </section>
+
+    <!-- Aviso contextual quando modo Treino Pesado estiver ativo -->
+    <div id="heavy-mode-banner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl px-3.5 py-2.5 text-xs text-amber-200 flex items-start gap-2.5">
+      <span class="text-base leading-none mt-0.5">🛡️</span>
+      <p class="leading-relaxed">
+        <strong>Modo Recuperação Ativo:</strong> Volume reduzido pela metade e foco em mobilidade/Bloco B para não roubar energia do seu treino pesado.
+      </p>
+    </div>
+
+    <!-- Card Principal: Próxima Pausa / Pausa Atual + Contagem Regressiva -->
+    <section class="relative overflow-hidden bg-gradient-to-br from-zinc-900 via-card to-zinc-900 border border-zinc-800 rounded-3xl p-5 shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <span id="status-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-lime-400/15 text-lime-400 border border-lime-400/30">
+          PRÓXIMA PAUSA
+        </span>
+        <span id="next-slot-time" class="text-sm font-bold text-zinc-300 tabular-nums">--:--</span>
+      </div>
+
+      <!-- Timer Gigante -->
+      <div class="my-2 text-center">
+        <div id="countdown-display" class="text-5xl sm:text-6xl font-black tracking-tight text-white tabular-nums">
+          00:00
+        </div>
+        <p id="countdown-subtitle" class="text-xs text-zinc-400 mt-1.5 font-medium">
+          até a rodada #1
+        </p>
+      </div>
+
+      <!-- Preview do Bloco da Rodada -->
+      <div class="mt-4 bg-zinc-950/70 border border-zinc-800/90 rounded-2xl p-3.5">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <span id="current-block-tag" class="text-xs font-extrabold uppercase tracking-wider text-lime-400">Bloco A • Ímpar</span>
+            <h2 id="current-block-title" class="text-sm font-bold text-white">Força & Estabilidade</h2>
+          </div>
+          <span id="current-round-pill" class="text-xs font-semibold px-2.5 py-1 rounded-xl bg-zinc-800 text-zinc-300">
+            Rodada 1
+          </span>
+        </div>
+
+        <ul id="preview-exercises-list" class="space-y-1.5 text-xs text-zinc-300 mt-2.5">
+          <!-- Preenchido via JS -->
+        </ul>
+      </div>
+
+      <!-- Botão Principal de Ação (Fazer Agora) -->
+      <button onclick="openWorkoutModal()"
+        class="mt-4 w-full py-4 px-5 rounded-2xl bg-lime-400 hover:bg-lime-300 active:scale-[0.98] text-zinc-950 font-extrabold text-base shadow-lg shadow-lime-400/20 transition-all flex items-center justify-center gap-2">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+        </svg>
+        <span>Fazer Agora</span>
+      </button>
+    </section>
+
+    <!-- Resumo do Progresso Diário -->
+    <section class="grid grid-cols-3 gap-2.5">
+      <div class="bg-card border border-border rounded-2xl p-3.5 text-center">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 block">Rodadas</span>
+        <span id="stat-rounds" class="text-xl font-black text-white tabular-nums mt-0.5 block">0/0</span>
+      </div>
+      <div class="bg-card border border-border rounded-2xl p-3.5 text-center">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 block">Repetições</span>
+        <span id="stat-reps" class="text-xl font-black text-lime-400 tabular-nums mt-0.5 block">0</span>
+      </div>
+      <div class="bg-card border border-border rounded-2xl p-3.5 text-center">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 block">Prancha</span>
+        <span id="stat-plank" class="text-xl font-black text-cyan-400 tabular-nums mt-0.5 block">0s</span>
+      </div>
+    </section>
+
+    <!-- Cronograma Visual do Dia -->
+    <section class="bg-card border border-border rounded-3xl p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-sm font-extrabold text-white">Cronograma de Hoje</h3>
+          <p class="text-xs text-zinc-400">Toque em um horário para iniciar ou revisar</p>
+        </div>
+        <button onclick="resetTodayProgress()" class="text-xs font-semibold text-zinc-400 hover:text-rose-400 px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 transition-colors">
+          Zerar dia
+        </button>
+      </div>
+
+      <div id="schedule-list" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+        <!-- Slots horários renderizados via JS -->
+      </div>
+    </section>
+
+    <!-- Configurações de Horário, Notificações & Alarme -->
+    <section class="bg-card border border-border rounded-3xl p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-extrabold text-white flex items-center gap-2">
+          <span>⏰ Horários & Alertas</span>
+        </h3>
+        <span id="notif-permission-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+          Verificando...
+        </span>
+      </div>
+
+      <!-- Inputs de Horário e Intervalo -->
+      <div class="grid grid-cols-3 gap-2.5">
+        <div class="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-2.5">
+          <label for="cfg-start" class="block text-[11px] font-semibold text-zinc-400 mb-1">Início</label>
+          <input id="cfg-start" type="time" onchange="saveSettingsFromUI()"
+            class="w-full bg-transparent text-white font-bold text-sm focus:outline-none tabular-nums" />
+        </div>
+        <div class="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-2.5">
+          <label for="cfg-end" class="block text-[11px] font-semibold text-zinc-400 mb-1">Fim</label>
+          <input id="cfg-end" type="time" onchange="saveSettingsFromUI()"
+            class="w-full bg-transparent text-white font-bold text-sm focus:outline-none tabular-nums" />
+        </div>
+        <div class="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-2.5">
+          <label for="cfg-interval" class="block text-[11px] font-semibold text-zinc-400 mb-1">Intervalo</label>
+          <select id="cfg-interval" onchange="saveSettingsFromUI()"
+            class="w-full bg-transparent text-white font-bold text-sm focus:outline-none">
+            <option value="30" class="bg-zinc-900">30 min</option>
+            <option value="45" class="bg-zinc-900">45 min</option>
+            <option value="60" class="bg-zinc-900">60 min</option>
+            <option value="90" class="bg-zinc-900">90 min</option>
+            <option value="120" class="bg-zinc-900">2 horas</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Escolha do Som de Alarme -->
+      <div class="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-zinc-300">Toque do Alarme</span>
+          <label class="inline-flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer">
+            <input id="cfg-vibrate" type="checkbox" onchange="saveSettingsFromUI()" class="accent-lime-400 w-4 h-4 rounded" />
+            <span>Vibrar celular</span>
+          </label>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5" id="sound-selector">
+          <button type="button" data-sound="energetic" onclick="selectSound('energetic')"
+            class="sound-opt py-2 px-2 rounded-xl text-xs font-bold border transition-all">
+            Energético
+          </button>
+          <button type="button" data-sound="soft" onclick="selectSound('soft')"
+            class="sound-opt py-2 px-2 rounded-xl text-xs font-bold border transition-all">
+            Suave
+          </button>
+          <button type="button" data-sound="double" onclick="selectSound('double')"
+            class="sound-opt py-2 px-2 rounded-xl text-xs font-bold border transition-all">
+            Bip Duplo
+          </button>
+          <button type="button" data-sound="mute" onclick="selectSound('mute')"
+            class="sound-opt py-2 px-2 rounded-xl text-xs font-bold border transition-all">
+            Mudo
+          </button>
+        </div>
+      </div>
+
+      <!-- Botões de Permissão e Teste -->
+      <div class="grid grid-cols-2 gap-2.5">
+        <button onclick="requestNotificationPermission()"
+          class="py-3 px-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+          <span>🔔 Ativar Notificação</span>
+        </button>
+        <button onclick="testAlertSystem()"
+          class="py-3 px-3 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 active:scale-95 text-cyan-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+          <span>🔊 Testar Alarme</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Dica Rápida PWA / Tela Inicial -->
+    <footer class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-3.5 text-xs text-zinc-400 leading-relaxed">
+      <div class="flex items-start gap-2.5">
+        <span class="text-base">📲</span>
+        <div>
+          <p class="font-bold text-zinc-200 mb-0.5">Use como App no Celular</p>
+          <p>
+            No <strong>Android (Chrome)</strong>: toque nos 3 pontinhos (<span class="text-zinc-200">⋮</span>) e em <em>"Adicionar à tela inicial"</em>.<br/>
+            No <strong>iPhone (Safari)</strong>: toque em <em>Compartilhar</em> (<span class="text-zinc-200">□↑</span>) e depois em <em>"Adicionar à Tela de Início"</em>.
+          </p>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Toast de Feedback Discreto (substitui qualquer alert) -->
+  <div id="toast-banner" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 w-[90%] max-w-sm">
+    <div id="toast-content" class="bg-zinc-800 border border-zinc-700 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl text-center">
+      Mensagem
+    </div>
+  </div>
+
+  <!-- MODAL 1: ALERTA DE HORA DA PAUSA (Quando o cronômetro zera) -->
+  <div id="alarm-modal" class="fixed inset-0 z-50 hidden bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-card border-2 border-lime-400 rounded-3xl p-6 shadow-2xl shadow-lime-400/20 text-center animate-pulse-ring">
+      <div class="w-16 h-16 mx-auto rounded-3xl bg-lime-400 text-zinc-950 flex items-center justify-center mb-4 shadow-lg shadow-lime-400/30">
+        <svg class="w-9 h-9" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      </div>
+
+      <span id="alarm-modal-slot" class="text-xs font-extrabold uppercase tracking-widest text-lime-400">
+        PAUSA DAS 10:00
+      </span>
+      <h2 class="text-2xl font-black text-white mt-1">Hora do Exercise Snack!</h2>
+      <p id="alarm-modal-block" class="text-sm text-zinc-300 mt-1 font-medium">
+        Bloco A • ~2 minutos para ativar o corpo
+      </p>
+
+      <div class="mt-6 space-y-2.5">
+        <button onclick="startFromAlarmModal()"
+          class="w-full py-4 rounded-2xl bg-lime-400 hover:bg-lime-300 active:scale-95 text-zinc-950 font-black text-base shadow-lg shadow-lime-400/20 transition-all">
+          ⚡ Iniciar Pausa Agora
+        </button>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="snoozeAlarm(5)"
+            class="py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-200 font-bold text-xs transition-all">
+            Adiar 5 min
+          </button>
+          <button onclick="snoozeAlarm(10)"
+            class="py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-200 font-bold text-xs transition-all">
+            Adiar 10 min
+          </button>
+        </div>
+
+        <button onclick="skipCurrentSlot()"
+          class="w-full py-2.5 rounded-xl text-zinc-400 hover:text-zinc-200 text-xs font-semibold transition-colors">
+          Pular esta rodada
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: MODO "FAZER AGORA" (Checklist + Cronômetro de Prancha) -->
+  <div id="workout-modal" class="fixed inset-0 z-40 hidden bg-zinc-950/95 backdrop-blur-md flex flex-col justify-end sm:justify-center p-0 sm:p-4">
+    <div class="w-full max-w-md mx-auto bg-card border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-5 max-h-[92vh] overflow-y-auto shadow-2xl">
+      <!-- Topo do Modal -->
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+        <div>
+          <span id="wm-badge" class="text-xs font-extrabold uppercase tracking-wider text-lime-400">Bloco A • Rodada 1</span>
+          <h2 id="wm-title" class="text-lg font-black text-white">Força & Estabilidade</h2>
+        </div>
+        <button onclick="closeWorkoutModal()" aria-label="Fechar"
+          class="w-10 h-10 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center font-bold">
+          ✕
+        </button>
+      </div>
+
+      <!-- Lista de Exercícios Interativa -->
+      <div id="wm-exercises-container" class="my-4 space-y-3">
+        <!-- Cards dos exercícios gerados via JS -->
+      </div>
+
+      <!-- Cronômetro Embutido para Prancha (Aparece no Bloco A ou quando houver exercício isométrico) -->
+      <div id="plank-timer-box" class="mb-4 bg-zinc-900 border border-cyan-500/30 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-extrabold uppercase tracking-wider text-cyan-400">⏱️ Cronômetro da Prancha</span>
+          <div class="flex gap-1.5">
+            <button onclick="setPlankDuration(30)" id="plank-30-btn"
+              class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all">30s</button>
+            <button onclick="setPlankDuration(45)" id="plank-45-btn"
+              class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all">45s</button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 mt-2">
+          <div id="plank-display" class="text-4xl font-black text-white tabular-nums">
+            00:30
+          </div>
+          <div class="flex gap-2">
+            <button id="plank-start-btn" onclick="togglePlankTimer()"
+              class="px-4 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 active:scale-95 text-zinc-950 font-extrabold text-xs transition-all">
+              Iniciar
+            </button>
+            <button onclick="resetPlankTimer()"
+              class="px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-300 font-bold text-xs transition-all">
+              Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botão Finalizar Rodada -->
+      <button onclick="completeCurrentWorkout()"
+        class="w-full py-4 rounded-2xl bg-lime-400 hover:bg-lime-300 active:scale-[0.98] text-zinc-950 font-black text-base shadow-lg shadow-lime-400/20 transition-all flex items-center justify-center gap-2">
+        <span>✅ Concluir Rodada e Registrar</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // DADOS DOS BLOCOS DE EXERCÍCIOS (Normal vs Treino Pesado)
+    // =========================================================================
+    const BLOCKS = {
+      A: {
+        id: 'A',
+        tag: 'Bloco A • Pausa Ímpar',
+        title: 'Força & Estabilidade',
+        normal: [
+          {
+            id: 'a1',
+            name: 'Agachamento com peso corporal',
+            targetText: '15 a 20 repetições',
+            repsCount: 18,
+            plankSec: 0,
+            tip: 'Desça controlando até a paralela, peito aberto e calcanhares firmes no chão.'
+          },
+          {
+            id: 'a2',
+            name: 'Flexão de braço',
+            targetText: '10 a 20 repetições',
+            repsCount: 15,
+            plankSec: 0,
+            tip: 'Tronco rígido como prancha e cotovelos a ~45° do corpo (ou mãos apoiadas na mesa).'
+          },
+          {
+            id: 'a3',
+            name: 'Prancha abdominal',
+            targetText: '30 a 45 segundos',
+            repsCount: 0,
+            plankSec: 35,
+            tip: 'Contraia glúteos e abdômen empurrando o chão com os antebraços sem afundar o quadril.'
+          }
+        ],
+        heavy: [
+          {
+            id: 'a1_h',
+            name: 'Agachamento leve + mobilidade de quadril',
+            targetText: '8 a 10 repetições',
+            repsCount: 10,
+            plankSec: 0,
+            tip: 'Ritmo fluido sem fadigar, focando apenas em lubrificar joelhos e quadril.'
+          },
+          {
+            id: 'a2_h',
+            name: 'Flexão inclinada na mesa/parede',
+            targetText: '8 a 10 repetições',
+            repsCount: 8,
+            plankSec: 0,
+            tip: 'Carga leve para ativar peitoral e ombros sem prejudicar sua recuperação.'
+          },
+          {
+            id: 'a3_h',
+            name: 'Prancha abdominal curta',
+            targetText: '20 a 30 segundos',
+            repsCount: 0,
+            plankSec: 25,
+            tip: 'Respiração controlada e ativação leve do core.'
+          }
+        ]
+      },
+      B: {
+        id: 'B',
+        tag: 'Bloco B • Pausa Par',
+        title: 'Cadeia Posterior & Postura',
+        normal: [
+          {
+            id: 'b1',
+            name: 'Ponte de glúteos no chão',
+            targetText: '15 a 20 repetições',
+            repsCount: 18,
+            plankSec: 0,
+            tip: 'Empurre os calcanhares e contraia bem os glúteos no topo por 1s sem forçar a lombar.'
+          },
+          {
+            id: 'b2',
+            name: 'Afundo alternado (ou reverso)',
+            targetText: '10 repetições por perna',
+            repsCount: 20,
+            plankSec: 0,
+            tip: 'Passo controlado para trás, tronco ereto e joelho alinhado.'
+          },
+          {
+            id: 'b3',
+            name: 'Remada escapular Y-T-W em pé',
+            targetText: '12 a 15 repetições',
+            repsCount: 15,
+            plankSec: 0,
+            tip: 'Junte as escápulas abrindo o peito para compensar a postura sentada.'
+          }
+        ],
+        heavy: [
+          {
+            id: 'b1_h',
+            name: 'Ponte de glúteos (ativação leve)',
+            targetText: '10 repetições',
+            repsCount: 10,
+            plankSec: 0,
+            tip: 'Excelente para acordar glúteos encurtados por ficar sentado.'
+          },
+          {
+            id: 'b2_h',
+            name: 'Mobilidade de quadril / afundo curto',
+            targetText: '5 repetições por perna',
+            repsCount: 10,
+            plankSec: 0,
+            tip: 'Amplitude confortável focando em alongar flexores do quadril.'
+          },
+          {
+            id: 'b3_h',
+            name: 'Remada escapular Y-T-W em pé',
+            targetText: '12 repetições',
+            repsCount: 12,
+            plankSec: 0,
+            tip: 'Foco total em abrir o peito e aliviar tensão cervical/escapular.'
+          }
+        ]
+      }
+    };
+
+    // =========================================================================
+    // ESTADO DA APLICAÇÃO & PERSISTÊNCIA (localStorage)
+    // =========================================================================
+    const STORAGE_KEY_SETTINGS = 'exercise_snacks_settings_v1';
+    const STORAGE_KEY_PROGRESS = 'exercise_snacks_progress_v1';
+
+    let settings = {
+      active: true,
+      dayMode: 'normal', // 'normal' | 'heavy'
+      startTime: '08:00',
+      endTime: '18:00',
+      intervalMinutes: 60,
+      soundType: 'energetic', // 'energetic' | 'soft' | 'double' | 'mute'
+      vibrate: true
+    };
+
+    let progress = {
+      date: getTodayKey(),
+      completedSlots: [], // array de strings ex: ['08:00', '09:00']
+      skippedSlots: [],
+      totalReps: 0,
+      totalPlankSec: 0
+    };
+
+    // Controle de tempo, soneca e modal ativo
+    let activeSlotForModal = null;
+    let snoozeTargetTimestamp = null;
+    let lastTriggeredSlotKey = null;
+    let audioCtx = null;
+
+    // Controle do cronômetro da prancha
+    let plankDuration = 30;
+    let plankRemaining = 30;
+    let plankInterval = null;
+
+    // =========================================================================
+    // INICIALIZAÇÃO
+    // =========================================================================
+    function init() {
+      loadState();
+      syncSettingsToUI();
+      updateHeaderDate();
+      updateNotificationBadge();
+      renderAll();
+
+      // Loop principal de 1 segundo
+      setInterval(tick, 1000);
+      tick();
+    }
+
+    function getTodayKey() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function loadState() {
+      try {
+        const savedSettings = JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS));
+        if (savedSettings) {
+          settings = { ...settings, ...savedSettings };
+        }
+      } catch (e) {
+        console.warn('Erro ao ler configurações:', e);
+      }
+
+      try {
+        const savedProgress = JSON.parse(localStorage.getItem(STORAGE_KEY_PROGRESS));
+        if (savedProgress && savedProgress.date === getTodayKey()) {
+          progress = { ...progress, ...savedProgress };
+        } else {
+          // Novo dia: reinicia progresso diário mantendo configurações
+          saveProgress();
+        }
+      } catch (e) {
+        console.warn('Erro ao ler progresso:', e);
+      }
+    }
+
+    function saveSettings() {
+      try {
+        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+      } catch (e) {}
+    }
+
+    function saveProgress() {
+      progress.date = getTodayKey();
+      try {
+        localStorage.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(progress));
+      } catch (e) {}
+    }
+
+    // =========================================================================
+    // GERAÇÃO DE SLOTS HORÁRIOS DO DIA
+    // =========================================================================
+    function generateDailySlots() {
+      const [startH, startM] = settings.startTime.split(':').map(Number);
+      const [endH, endM] = settings.endTime.split(':').map(Number);
+
+      let startTotal = startH * 60 + startM;
+      let endTotal = endH * 60 + endM;
+
+      if (endTotal <= startTotal) {
+        endTotal = startTotal + 60;
+      }
+
+      const interval = Math.max(15, Number(settings.intervalMinutes) || 60);
+      const slots = [];
+      let index = 1;
+
+      for (let mins = startTotal; mins <= endTotal; mins += interval) {
+        const h = Math.floor(mins / 60) % 24;
+        const m = mins % 60;
+        const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+        // Regra: Pausas ímpares = Bloco A, Pausas pares = Bloco B
+        // No modo Treino Pesado, podemos manter alternância com volume reduzido ou focar mais no B;
+        // aqui alternamos A/B com exercícios leves e damos opção de troca rápida.
+        const blockKey = (index % 2 === 1) ? 'A' : 'B';
+
+        const targetDate = new Date();
+        targetDate.setHours(h, m, 0, 0);
+
+        slots.push({
+          index,
+          timeStr,
+          minutesOfDay: mins,
+          timestamp: targetDate.getTime(),
+          blockKey
+        });
+        index++;
+      }
+
+      return slots;
+    }
+
+    function getExercisesForBlock(blockKey) {
+      const block = BLOCKS[blockKey] || BLOCKS.A;
+      return settings.dayMode === 'heavy' ? block.heavy : block.normal;
+    }
+
+    // =========================================================================
+    // TICK EM TEMPO REAL (Contagem regressiva + Disparo de Alarme)
+    // =========================================================================
+    function tick() {
+      // Verifica virada de meia-noite
+      if (progress.date !== getTodayKey()) {
+        progress = {
+          date: getTodayKey(),
+          completedSlots: [],
+          skippedSlots: [],
+          totalReps: 0,
+          totalPlankSec: 0
+        };
+        saveProgress();
+        updateHeaderDate();
+        renderAll();
+      }
+
+      const now = Date.now();
+      const slots = generateDailySlots();
+      const targetInfo = resolveNextTarget(now, slots);
+
+      updateCountdownUI(now, targetInfo, slots);
+
+      // Verifica se chegou a hora de disparar o alarme
+      if (settings.active && targetInfo.slot) {
+        // Caso 1: Soneca ativa atingida
+        if (snoozeTargetTimestamp && now >= snoozeTargetTimestamp) {
+          snoozeTargetTimestamp = null;
+          triggerSlotAlarm(targetInfo.slot, true);
+          return;
+        }
+
+        // Caso 2: Horário exato da rodada atingido (janela de até 15s para evitar perda por throttling)
+        const diffSec = Math.floor((now - targetInfo.slot.timestamp) / 1000);
+        const triggerId = `${getTodayKey()}_${targetInfo.slot.timeStr}`;
+
+        if (diffSec >= 0 && diffSec <= 15 && lastTriggeredSlotKey !== triggerId) {
+          lastTriggeredSlotKey = triggerId;
+          triggerSlotAlarm(targetInfo.slot, false);
+        }
+      }
+    }
+
+    function resolveNextTarget(now, slots) {
+      // Se existe soneca programada no futuro
+      if (snoozeTargetTimestamp && snoozeTargetTimestamp > now) {
+        const pendingSlot = slots.find(s => !progress.completedSlots.includes(s.timeStr) && !progress.skippedSlots.includes(s.timeStr)) || slots[0];
+        return {
+          mode: 'snooze',
+          targetTime: snoozeTargetTimestamp,
+          slot: pendingSlot
+        };
+      }
+
+      // Procura o próximo slot pendente (futuro ou que acabou de vencer nos últimos 15 min)
+      const graceMs = 15 * 60 * 1000;
+      for (const slot of slots) {
+        const isDone = progress.completedSlots.includes(slot.timeStr);
+        const isSkipped = progress.skippedSlots.includes(slot.timeStr);
+        if (isDone || isSkipped) continue;
+
+        if (slot.timestamp >= now) {
+          return { mode: 'upcoming', targetTime: slot.timestamp, slot };
+        }
+        if (now - slot.timestamp <= graceMs) {
+          return { mode: 'due_now', targetTime: slot.timestamp, slot };
+        }
+      }
+
+      // Se todos os slots de hoje já passaram ou foram concluídos, aponta para o 1º slot de amanhã
+      const firstSlot = slots[0];
+      const tomorrowTs = firstSlot.timestamp + 24 * 60 * 60 * 1000;
+      return {
+        mode: 'tomorrow',
+        targetTime: tomorrowTs,
+        slot: firstSlot
+      };
+    }
+
+    function updateCountdownUI(now, targetInfo, slots) {
+      const countdownEl = document.getElementById('countdown-display');
+      const subtitleEl = document.getElementById('countdown-subtitle');
+      const badgeEl = document.getElementById('status-badge');
+      const nextTimeEl = document.getElementById('next-slot-time');
+
+      if (!settings.active) {
+        badgeEl.textContent = 'LEMBRETES PAUSADOS';
+        badgeEl.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700';
+      } else if (targetInfo.mode === 'due_now') {
+        badgeEl.textContent = '🔥 HORA DA PAUSA!';
+        badgeEl.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-lime-400 text-zinc-950 animate-pulse';
+      } else if (targetInfo.mode === 'snooze') {
+        badgeEl.textContent = '💤 ADIADO (SONECA)';
+        badgeEl.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30';
+      } else if (targetInfo.mode === 'tomorrow') {
+        badgeEl.textContent = '🎉 DIA CONCLUÍDO';
+        badgeEl.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/30';
+      } else {
+        badgeEl.textContent = 'PRÓXIMA PAUSA';
+        badgeEl.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-lime-400/15 text-lime-400 border border-lime-400/30';
+      }
+
+      const slot = targetInfo.slot;
+      nextTimeEl.textContent = targetInfo.mode === 'tomorrow' ? `Amanhã ${slot.timeStr}` : slot.timeStr;
+
+      const diffMs = Math.max(0, targetInfo.targetTime - now);
+      const totalSec = Math.floor(diffMs / 1000);
+      const hrs = Math.floor(totalSec / 3600);
+      const mins = Math.floor((totalSec % 3600) / 60);
+      const secs = totalSec % 60;
+
+      if (targetInfo.mode === 'due_now') {
+        countdownEl.textContent = 'AGORA';
+        subtitleEl.textContent = `Rodada #${slot.index} (${slot.timeStr}) aguardando você`;
+      } else {
+        countdownEl.textContent = hrs > 0
+          ? `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+          : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        subtitleEl.textContent = targetInfo.mode === 'tomorrow'
+          ? 'até a primeira rodada de amanhã'
+          : `até a rodada #${slot.index} • Bloco ${slot.blockKey}`;
+      }
+
+      // Atualiza preview do bloco atual
+      renderPreviewCard(slot);
+    }
+
+    function renderPreviewCard(slot) {
+      const block = BLOCKS[slot.blockKey];
+      const exercises = getExercisesForBlock(slot.blockKey);
+
+      const tagEl = document.getElementById('current-block-tag');
+      const titleEl = document.getElementById('current-block-title');
+      const pillEl = document.getElementById('current-round-pill');
+      const listEl = document.getElementById('preview-exercises-list');
+
+      tagEl.textContent = block.tag;
+      tagEl.className = slot.blockKey === 'A'
+        ? 'text-xs font-extrabold uppercase tracking-wider text-lime-400'
+        : 'text-xs font-extrabold uppercase tracking-wider text-cyan-400';
+
+      titleEl.textContent = block.title;
+      pillEl.textContent = `Rodada #${slot.index}`;
+
+      listEl.innerHTML = exercises.map(ex => `
+        <li class="flex items-center justify-between py-1 border-b border-zinc-800/60 last:border-none">
+          <span class="font-medium text-zinc-200 truncate pr-2">${ex.name}</span>
+          <span class="text-xs font-bold text-zinc-400 shrink-0">${ex.targetText}</span>
+        </li>
+      `).join('');
+
+      // Guarda referência para o botão "Fazer Agora"
+      window.__currentActiveSlot = slot;
+    }
+
+    // =========================================================================
+    // RENDERIZAÇÃO GERAL (Cronograma, Estatísticas, Controles)
+    // =========================================================================
+    function renderAll() {
+      const slots = generateDailySlots();
+      renderScheduleList(slots);
+      renderStats(slots);
+      updateModeButtons();
+      updateActiveToggleUI();
+      updateSoundButtonsUI();
+    }
+
+    function renderStats(slots) {
+      document.getElementById('stat-rounds').textContent = `${progress.completedSlots.length}/${slots.length}`;
+      document.getElementById('stat-reps').textContent = progress.totalReps;
+      document.getElementById('stat-plank').textContent = `${progress.totalPlankSec}s`;
+    }
+
+    function renderScheduleList(slots) {
+      const container = document.getElementById('schedule-list');
+      const now = Date.now();
+      const nextTarget = resolveNextTarget(now, slots);
+
+      container.innerHTML = slots.map(slot => {
+        const isDone = progress.completedSlots.includes(slot.timeStr);
+        const isSkipped = progress.skippedSlots.includes(slot.timeStr);
+        const isCurrent = nextTarget.slot && nextTarget.slot.timeStr === slot.timeStr && nextTarget.mode !== 'tomorrow';
+        const isPast = slot.timestamp < now && !isDone && !isCurrent;
+
+        let statusBadge = '';
+        let rowStyle = 'bg-zinc-900/70 border-zinc-800/90';
+
+        if (isDone) {
+          statusBadge = '<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-lime-400/15 text-lime-400">✓ Feito</span>';
+          rowStyle = 'bg-lime-400/5 border-lime-400/25';
+        } else if (isCurrent) {
+          statusBadge = '<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-lime-400 text-zinc-950">Atual</span>';
+          rowStyle = 'bg-zinc-900 border-lime-400/60 shadow-sm';
+        } else if (isSkipped) {
+          statusBadge = '<span class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-zinc-800 text-zinc-500">Pulado</span>';
+          rowStyle = 'bg-zinc-950/60 border-zinc-900 opacity-60';
+        } else if (isPast) {
+          statusBadge = '<span class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-amber-500/10 text-amber-300">Pendente</span>';
+        } else {
+          statusBadge = '<span class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-zinc-800 text-zinc-400">Agendado</span>';
+        }
+
+        const blockColor = slot.blockKey === 'A' ? 'text-lime-400 bg-lime-400/10' : 'text-cyan-400 bg-cyan-400/10';
+
+        return `
+          <button onclick="openWorkoutModalForSlot('${slot.timeStr}')"
+            class="w-full text-left flex items-center justify-between p-3 rounded-2xl border ${rowStyle} hover:border-zinc-700 active:scale-[0.99] transition-all">
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-black text-white tabular-nums w-12">${slot.timeStr}</span>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-md ${blockColor}">Bloco ${slot.blockKey}</span>
+                  <span class="text-xs font-bold text-zinc-200">${BLOCKS[slot.blockKey].title}</span>
+                </div>
+                <p class="text-[11px] text-zinc-400 mt-0.5">Rodada #${slot.index} • ${settings.dayMode === 'heavy' ? 'Volume reduzido' : 'Volume completo'}</p>
+              </div>
+            </div>
+            ${statusBadge}
+          </button>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // MODAL "FAZER AGORA" (Checklist + Cronômetro de Prancha)
+    // =========================================================================
+    function openWorkoutModal() {
+      const slot = window.__currentActiveSlot || generateDailySlots()[0];
+      openWorkoutModalForSlot(slot.timeStr);
+    }
+
+    function openWorkoutModalForSlot(timeStr) {
+      const slots = generateDailySlots();
+      const slot = slots.find(s => s.timeStr === timeStr) || slots[0];
+      activeSlotForModal = slot;
+
+      const block = BLOCKS[slot.blockKey];
+      const exercises = getExercisesForBlock(slot.blockKey);
+
+      document.getElementById('wm-badge').textContent = `${block.tag} • ${slot.timeStr}`;
+      document.getElementById('wm-badge').className = slot.blockKey === 'A'
+        ? 'text-xs font-extrabold uppercase tracking-wider text-lime-400'
+        : 'text-xs font-extrabold uppercase tracking-wider text-cyan-400';
+      document.getElementById('wm-title').textContent = block.title;
+
+      const container = document.getElementById('wm-exercises-container');
+      container.innerHTML = exercises.map((ex, idx) => `
+        <label class="flex items-start gap-3 p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 cursor-pointer hover:border-zinc-700 transition-all select-none">
+          <input type="checkbox" data-ex-idx="${idx}" class="wm-ex-check mt-1 w-5 h-5 rounded-lg accent-lime-400 shrink-0" />
+          <div class="flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-bold text-white">${ex.name}</span>
+              <span class="text-xs font-extrabold px-2 py-0.5 rounded-lg bg-zinc-800 text-lime-400 shrink-0">${ex.targetText}</span>
+            </div>
+            <p class="text-xs text-zinc-400 mt-1 leading-relaxed">${ex.tip}</p>
+          </div>
+        </label>
+      `).join('');
+
+      // Exibe o cronômetro de prancha quando for Bloco A
+      const plankBox = document.getElementById('plank-timer-box');
+      if (slot.blockKey === 'A') {
+        plankBox.classList.remove('hidden');
+        setPlankDuration(settings.dayMode === 'heavy' ? 30 : 30);
+      } else {
+        plankBox.classList.add('hidden');
+        stopPlankInterval();
+      }
+
+      document.getElementById('workout-modal').classList.remove('hidden');
+    }
+
+    function closeWorkoutModal() {
+      stopPlankInterval();
+      document.getElementById('workout-modal').classList.add('hidden');
+    }
+
+    function completeCurrentWorkout() {
+      if (!activeSlotForModal) return;
+
+      const slot = activeSlotForModal;
+      const exercises = getExercisesForBlock(slot.blockKey);
+      const checks = Array.from(document.querySelectorAll('.wm-ex-check'));
+
+      // Se o usuário não marcou nenhum checkbox manualmente, considera a rodada inteira feita ao clicar em Concluir
+      const anyChecked = checks.some(c => c.checked);
+      let addedReps = 0;
+      let addedPlank = 0;
+
+      exercises.forEach((ex, idx) => {
+        if (!anyChecked || checks[idx]?.checked) {
+          addedReps += ex.repsCount;
+          addedPlank += ex.plankSec;
+        }
+      });
+
+      if (!progress.completedSlots.includes(slot.timeStr)) {
+        progress.completedSlots.push(slot.timeStr);
+        progress.skippedSlots = progress.skippedSlots.filter(s => s !== slot.timeStr);
+        progress.totalReps += addedReps;
+        progress.totalPlankSec += addedPlank;
+        saveProgress();
+      }
+
+      snoozeTargetTimestamp = null;
+      closeWorkoutModal();
+      renderAll();
+      tick();
+      playFeedbackTone('success');
+      showToast(`🔥 Rodada ${slot.timeStr} concluída! +${addedReps} reps registradas.`);
+    }
+
+    // =========================================================================
+    // CRONÔMETRO DA PRANCHA (30s / 45s)
+    // =========================================================================
+    function setPlankDuration(sec) {
+      stopPlankInterval();
+      plankDuration = sec;
+      plankRemaining = sec;
+      updatePlankUI();
+
+      const btn30 = document.getElementById('plank-30-btn');
+      const btn45 = document.getElementById('plank-45-btn');
+
+      btn30.className = sec === 30
+        ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-400 text-zinc-950'
+        : 'px-2.5 py-1 rounded-lg text-xs font-bold bg-zinc-800 text-zinc-400';
+
+      btn45.className = sec === 45
+        ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-400 text-zinc-950'
+        : 'px-2.5 py-1 rounded-lg text-xs font-bold bg-zinc-800 text-zinc-400';
+    }
+
+    function togglePlankTimer() {
+      if (plankInterval) {
+        stopPlankInterval();
+        document.getElementById('plank-start-btn').textContent = 'Continuar';
+        return;
+      }
+
+      if (plankRemaining <= 0) {
+        plankRemaining = plankDuration;
+      }
+
+      document.getElementById('plank-start-btn').textContent = 'Pausar';
+      plankInterval = setInterval(() => {
+        plankRemaining--;
+        updatePlankUI();
+
+        if (plankRemaining <= 0) {
+          stopPlankInterval();
+          document.getElementById('plank-start-btn').textContent = 'Iniciar';
+          playAlarmSound('double');
+          if (settings.vibrate && navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]);
+          }
+          showToast('⏱️ Tempo de prancha concluído!');
+        }
+      }, 1000);
+    }
+
+    function resetPlankTimer() {
+      stopPlankInterval();
+      plankRemaining = plankDuration;
+      document.getElementById('plank-start-btn').textContent = 'Iniciar';
+      updatePlankUI();
+    }
+
+    function stopPlankInterval() {
+      if (plankInterval) {
+        clearInterval(plankInterval);
+        plankInterval = null;
+      }
+    }
+
+    function updatePlankUI() {
+      const m = Math.floor(plankRemaining / 60);
+      const s = plankRemaining % 60;
+      document.getElementById('plank-display').textContent =
+        `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    // =========================================================================
+    // SISTEMA DE ALARME SONORO (Web Audio API) + NOTIFICAÇÃO + VIBRAÇÃO
+    // =========================================================================
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playAlarmSound(type = settings.soundType) {
+      if (type === 'mute') return;
+      ensureAudioContext();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'soft') {
+        // Acorde suave ascendente
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.14);
+          gain.gain.setValueAtTime(0.001, now + i * 0.14);
+          gain.gain.exponentialRampToValueAtTime(0.18, now + i * 0.14 + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.14 + 0.45);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + i * 0.14);
+          osc.stop(now + i * 0.14 + 0.46);
+        });
+      } else if (type === 'double') {
+        // Bip duplo esportivo
+        [0, 0.22].forEach(offset => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(880, now + offset);
+          gain.gain.setValueAtTime(0.001, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.25, now + offset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.16);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.17);
+        });
+      } else {
+        // 'energetic': Pulso vibrante de treino
+        const notes = [587.33, 880, 1174.66, 880, 1174.66];
+        notes.forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + i * 0.11);
+          gain.gain.setValueAtTime(0.001, now + i * 0.11);
+          gain.gain.exponentialRampToValueAtTime(0.14, now + i * 0.11 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.11 + 0.1);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + i * 0.11);
+          osc.stop(now + i * 0.11 + 0.11);
+        });
+      }
+    }
+
+    function playFeedbackTone() {
+      playAlarmSound('soft');
+    }
+
+    function triggerSlotAlarm(slot, isSnooze) {
+      // 1. Som
+      playAlarmSound(settings.soundType);
+
+      // 2. Vibração no celular
+      if (settings.vibrate && navigator.vibrate) {
+        navigator.vibrate([300, 120, 300, 120, 400]);
+      }
+
+      // 3. Notificação nativa do navegador
+      sendNativeNotification(slot, isSnooze);
+
+      // 4. Modal visual na tela
+      activeSlotForModal = slot;
+      const block = BLOCKS[slot.blockKey];
+      document.getElementById('alarm-modal-slot').textContent =
+        isSnooze ? `LEMBRETE ADIADO • ${slot.timeStr}` : `PAUSA DAS ${slot.timeStr}`;
+      document.getElementById('alarm-modal-block').textContent =
+        `${block.tag} • ${block.title}`;
+      document.getElementById('alarm-modal').classList.remove('hidden');
+    }
+
+    function startFromAlarmModal() {
+      document.getElementById('alarm-modal').classList.add('hidden');
+      if (activeSlotForModal) {
+        openWorkoutModalForSlot(activeSlotForModal.timeStr);
+      }
+    }
+
+    function snoozeAlarm(minutes) {
+      document.getElementById('alarm-modal').classList.add('hidden');
+      snoozeTargetTimestamp = Date.now() + minutes * 60 * 1000;
+      showToast(`💤 Alarme adiado por ${minutes} minutos.`);
+      tick();
+    }
+
+    function skipCurrentSlot() {
+      document.getElementById('alarm-modal').classList.add('hidden');
+      snoozeTargetTimestamp = null;
+      if (activeSlotForModal && !progress.skippedSlots.includes(activeSlotForModal.timeStr)) {
+        progress.skippedSlots.push(activeSlotForModal.timeStr);
+        saveProgress();
+      }
+      renderAll();
+      tick();
+      showToast('Rodada pulada.');
+    }
+
+    function requestNotificationPermission() {
+      ensureAudioContext();
+      if (!('Notification' in window)) {
+        showToast('Este navegador não suporta notificações nativas.');
+        return;
+      }
+      Notification.requestPermission().then(permission => {
+        updateNotificationBadge();
+        if (permission === 'granted') {
+          showToast('🔔 Notificações ativadas com sucesso!');
+        } else {
+          showToast('Permissão negada. O alarme visual e sonoro na página continuará funcionando.');
+        }
+      });
+    }
+
+    function updateNotificationBadge() {
+      const badge = document.getElementById('notif-permission-badge');
+      if (!('Notification' in window)) {
+        badge.textContent = 'Não suportado';
+        badge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400';
+        return;
+      }
+      if (Notification.permission === 'granted') {
+        badge.textContent = 'Permitidas ✓';
+        badge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-lime-400/15 text-lime-400';
+      } else if (Notification.permission === 'denied') {
+        badge.textContent = 'Bloqueadas';
+        badge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400';
+      } else {
+        badge.textContent = 'Pendente';
+        badge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300';
+      }
+    }
+
+    function sendNativeNotification(slot, isSnooze = false) {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      const block = BLOCKS[slot.blockKey];
+      const exercises = getExercisesForBlock(slot.blockKey);
+      const summary = exercises.map(e => `${e.name} (${e.targetText})`).join(' • ');
+
+      try {
+        const notif = new Notification(
+          isSnooze ? `⏰ Hora do Exercise Snack! (${slot.timeStr})` : `⚡ Exercise Snack • ${slot.timeStr}`,
+          {
+            body: `${block.tag}: ${summary}`,
+            tag: 'exercise-snack-reminder',
+            renotify: true
+          }
+        );
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      } catch (e) {
+        console.warn('Falha ao disparar Notification:', e);
+      }
+    }
+
+    function testAlertSystem() {
+      ensureAudioContext();
+      const slot = window.__currentActiveSlot || generateDailySlots()[0];
+      triggerSlotAlarm(slot, false);
+    }
+
+    // =========================================================================
+    // CONTROLES DE CONFIGURAÇÃO E INTERFACE
+    // =========================================================================
+    function toggleReminders() {
+      ensureAudioContext();
+      settings.active = !settings.active;
+      saveSettings();
+      updateActiveToggleUI();
+      tick();
+      showToast(settings.active ? '✅ Lembretes horários ativados!' : '⏸️ Lembretes pausados.');
+    }
+
+    function updateActiveToggleUI() {
+      const btn = document.getElementById('toggle-active-btn');
+      const dot = document.getElementById('active-dot');
+      const label = document.getElementById('active-label');
+
+      if (settings.active) {
+        btn.className = 'flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border border-lime-400/30 bg-lime-400/10 text-lime-400 transition-all active:scale-95 font-bold text-xs';
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-lime-400 animate-pulse';
+        label.textContent = 'Ativo';
+      } else {
+        btn.className = 'flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-400 transition-all active:scale-95 font-bold text-xs';
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-zinc-600';
+        label.textContent = 'Pausado';
+      }
+    }
+
+    function setDayMode(mode) {
+      settings.dayMode = mode;
+      saveSettings();
+      renderAll();
+      tick();
+    }
+
+    function updateModeButtons() {
+      const normalBtn = document.getElementById('mode-normal-btn');
+      const heavyBtn = document.getElementById('mode-heavy-btn');
+      const banner = document.getElementById('heavy-mode-banner');
+
+      if (settings.dayMode === 'normal') {
+        normalBtn.className = 'flex-1 py-2.5 px-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 bg-lime-400 text-zinc-950 shadow';
+        heavyBtn.className = 'flex-1 py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white';
+        banner.classList.add('hidden');
+      } else {
+        heavyBtn.className = 'flex-1 py-2.5 px-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 bg-amber-400 text-zinc-950 shadow';
+        normalBtn.className = 'flex-1 py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white';
+        banner.classList.remove('hidden');
+      }
+    }
+
+    function selectSound(soundType) {
+      settings.soundType = soundType;
+      saveSettings();
+      updateSoundButtonsUI();
+      if (soundType !== 'mute') {
+        playAlarmSound(soundType);
+      }
+    }
+
+    function updateSoundButtonsUI() {
+      document.querySelectorAll('.sound-opt').forEach(btn => {
+        const isSelected = btn.dataset.sound === settings.soundType;
+        btn.className = isSelected
+          ? 'sound-opt py-2 px-2 rounded-xl text-xs font-extrabold border border-lime-400 bg-lime-400/15 text-lime-400 transition-all'
+          : 'sound-opt py-2 px-2 rounded-xl text-xs font-semibold border border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 transition-all';
+      });
+    }
+
+    function syncSettingsToUI() {
+      document.getElementById('cfg-start').value = settings.startTime;
+      document.getElementById('cfg-end').value = settings.endTime;
+      document.getElementById('cfg-interval').value = String(settings.intervalMinutes);
+      document.getElementById('cfg-vibrate').checked = Boolean(settings.vibrate);
+    }
+
+    function saveSettingsFromUI() {
+      settings.startTime = document.getElementById('cfg-start').value || '08:00';
+      settings.endTime = document.getElementById('cfg-end').value || '18:00';
+      settings.intervalMinutes = Number(document.getElementById('cfg-interval').value) || 60;
+      settings.vibrate = document.getElementById('cfg-vibrate').checked;
+      snoozeTargetTimestamp = null;
+      saveSettings();
+      renderAll();
+      tick();
+      showToast('Horários atualizados.');
+    }
+
+    function resetTodayProgress() {
+      progress = {
+        date: getTodayKey(),
+        completedSlots: [],
+        skippedSlots: [],
+        totalReps: 0,
+        totalPlankSec: 0
+      };
+      snoozeTargetTimestamp = null;
+      lastTriggeredSlotKey = null;
+      saveProgress();
+      renderAll();
+      tick();
+      showToast('Progresso de hoje zerado.');
+    }
+
+    function updateHeaderDate() {
+      const now = new Date();
+      const formatted = now.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short'
+      });
+      document.getElementById('header-date').textContent = formatted;
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      const banner = document.getElementById('toast-banner');
+      const content = document.getElementById('toast-content');
+      content.textContent = msg;
+      banner.classList.remove('opacity-0', 'translate-y-2');
+      banner.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        banner.classList.remove('opacity-100', 'translate-y-0');
+        banner.classList.add('opacity-0', 'translate-y-2');
+      }, 3000);
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
